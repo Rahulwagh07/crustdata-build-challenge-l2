@@ -5,14 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import Message from "./message";
-import { getResponse } from "../utils/response";
 import { SendHorizontal } from "lucide-react";
+import axios from "axios";
+
+interface ChatMessage {
+  text: string;
+  isUser: boolean;
+}
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<
-    Array<{ text: string; isUser: boolean }>
-  >([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -37,15 +41,42 @@ export default function ChatInterface() {
     }
   }, [input]);
 
-  const handleSend = () => {
-    if (input.trim()) {
-      const newMessages = [
-        ...messages,
-        { text: input, isUser: true },
-        { text: getResponse(input), isUser: false },
-      ];
-      setMessages(newMessages);
-      setInput("");
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = { text: input.trim(), isUser: true };
+    const loadingMessage = { text: "", isUser: false };
+    
+    setMessages(prev => [...prev, userMessage, loadingMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chat`, {
+        message: userMessage.text,
+        history: messages.map(m => ({
+          role: m.isUser ? 'user' : 'assistant',
+          content: m.text
+        }))
+      });
+
+      if (!response.data || !response.data.response) {
+        throw new Error('Invalid response format from server');
+      }
+
+      setMessages(prev => prev.slice(0, -1).concat({ 
+        text: response.data.response, 
+        isUser: false 
+      }));
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => prev.slice(0, -1).concat({ 
+        text: "I apologize, but I encountered an error. Please try again or rephrase your question.", 
+        isUser: false 
+      }));
+    } finally {
+      setIsLoading(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = "40px";
       }
@@ -71,14 +102,15 @@ export default function ChatInterface() {
             messages.map((message, index) => (
               <Message
                 key={index}
-                text={message.text}
+                text={message.text || "An error occurred"}
                 isUser={message.isUser}
+                isLoading={!message.isUser && index === messages.length - 1 && isLoading}
               />
             ))
           )}
           <div ref={messagesEndRef} />
         </div>
-        <div className="p-4 border-t border-gray-800/30 bg-gray-900/20 backdrop-blur-sm">
+        <div className="p-4">
           <div className="flex gap-2">
             <div className="flex-1 flex items-center">
               <Textarea
@@ -92,14 +124,18 @@ export default function ChatInterface() {
                     handleSend();
                   }
                 }}
-                className="bg-gray-900/50 border-gray-700/50 text-gray-100 placeholder:text-gray-500 focus:ring-0 focus:border-gray-600 min-h-[40px] max-h-[200px] py-2.5"
+                disabled={isLoading}
+                className={`bg-gray-900/50 border-gray-700/50 text-gray-100 placeholder:text-gray-500 focus:ring-0 focus:border-gray-600 min-h-[40px] max-h-[200px] py-2.5 ${
+                  isLoading ? 'opacity-50' : ''
+                }`}
                 style={{ resize: "none" }}
               />
             </div>
             <div className="flex items-center">
               <Button
                 onClick={handleSend}
-                className="bg-[#EBFF00] hover:bg-[#d4e600] text-black font-medium w-10 h-10 p-0"
+                disabled={isLoading }
+                className={`bg-[#EBFF00] hover:bg-[#d4e600] text-black font-medium w-10 h-10 p-0}`}
               >
                 <SendHorizontal className="h-4 w-4" />
               </Button>

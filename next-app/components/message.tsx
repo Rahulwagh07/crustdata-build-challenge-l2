@@ -6,9 +6,10 @@ import { RenderCodeBlock } from "./render-codeblock";
 interface MessageProps {
   text: string;
   isUser: boolean;
+  isLoading?: boolean;
 }
 
-export default function Message({ text, isUser }: MessageProps) {
+export default function Message({ text, isUser, isLoading = false }: MessageProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleCopy = async (text: string, index: number) => {
@@ -62,11 +63,9 @@ export default function Message({ text, isUser }: MessageProps) {
               : "bg-gray-900/50 border border-gray-700/30"
           }`}
         >
-          {isUser ? (
+          {isUser ? 
             <User className="h-4 w-4 text-gray-400" />
-          ) : (
-            <Brain className="h-4 w-4 text-gray-400" />
-          )}
+           :  <Brain className="h-4 w-4 text-gray-400" />}
         </div>
         <div
           className={`rounded-lg px-4 py-2 text-sm border ${
@@ -76,7 +75,14 @@ export default function Message({ text, isUser }: MessageProps) {
           }`}
         >
           <div className="prose prose-invert max-w-none">
-            {renderContent(text)}
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <span className="animate-pulse">Thinking</span>
+                <span className="animate-pulse">...</span>
+              </div>
+            ) : (
+              renderContent(text)
+            )}
           </div>
         </div>
       </div>
