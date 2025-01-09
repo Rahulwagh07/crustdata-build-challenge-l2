@@ -1,11 +1,18 @@
 import axios from 'axios';
 import { SYSTEM_PROMPT } from '../lib/prompt';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CRUSTDATA_API_DOCS } from '../lib/api-documentation';
 import { isPotentialAPIRequest } from '../lib/util';
 import { AI_CONFIG, JSON_PATTERNS } from '../lib/constant';
+import { DocumentationService } from './documentationService';
+ 
 
 class ChatBot {
+  private docService: DocumentationService;
+
+  constructor() {
+    this.docService = DocumentationService.getInstance();
+  }
+
   private initGeminiModel() {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     return genAI.getGenerativeModel({ model: AI_CONFIG.MODEL_NAME });
@@ -17,15 +24,24 @@ class ChatBot {
   ) {
     const model = this.initGeminiModel();
 
-    const conversationContext = history
-      .map((msg) => `${msg.role}: ${msg.content}`)
-      .join('\n');
+    const data = await this.docService.getApiDocs();
+    const apiDocs = data?.map(doc => doc.content).join('\n');
+    const releventContext = await this.docService.searchDocs(message);
 
-    const prompt = `${SYSTEM_PROMPT}\n\nAPI Documentation:\n${JSON.stringify(
-      CRUSTDATA_API_DOCS,
-      null,
-      2
-    )}\n\nConversation History:\n${conversationContext}\n\nUser: ${message}\nAssistant:`;
+    const prompt = `
+      ${SYSTEM_PROMPT}
+    
+      API Documentation:
+      ${apiDocs}
+    
+      Relevant Context:
+      ${releventContext}
+    
+      Conversation History:
+      ${history.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+    
+      User: ${message}
+      Assistant:`;
 
     try {
       const result = await model.generateContent(prompt);
@@ -48,6 +64,7 @@ class ChatBot {
       throw new Error('Failed to generate response');
     }
   }
+
 
   private async validateAndFixAPI(
     response: string,
