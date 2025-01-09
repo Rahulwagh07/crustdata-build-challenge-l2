@@ -26,7 +26,7 @@ export const handleChat = async (req: Request, res: Response): Promise<void> => 
     }
     const result = await chatbot.generateGeminiResponse(message, history || []);
     res.json(result);
-
+    return;
   } catch (error) {
     console.log(`Error in chat endpoint:`, error);
     res.status(500).json({
