@@ -26,6 +26,13 @@ app.post("/api/knowledge/slack", knowledge.importSlackMessages);
 initChatbot();
 initializeDatabase();
 
+app.get("/", (_req, res) => {
+	res.json({
+    success: true,
+    message: 'Server is running...'
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }); 
